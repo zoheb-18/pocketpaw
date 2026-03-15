@@ -64,6 +64,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+vector = ["chromadb"]
 # --- Feature extras ---
 dashboard = [
     # Kept for backward compat — dashboard deps are now in core.
