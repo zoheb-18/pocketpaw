@@ -465,7 +465,7 @@ class TestToolExecutionTimeout:
             )
 
         assert result is not None, "RememberTool returned None"
-        assert isinstance(result, (dict, str)), f"Unexpected result type: {type(result)}"
+        assert isinstance(result, dict | str), f"Unexpected result type: {type(result)}"
 
     @pytest.mark.asyncio
     async def test_recall_tool_completes_within_timeout(self, tmp_path):
