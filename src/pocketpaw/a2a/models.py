@@ -154,6 +154,11 @@ class TaskSendParams(BaseModel):
     context_id: str | None = None
     session_id: str | None = None
     message: A2AMessage
+    # Structured conversation history (preserves role/turn boundaries).
+    # Pass the prior A2AMessage objects here rather than flattening their
+    # parts into the current message — the remote agent needs to distinguish
+    # its own previous responses from user turns.
+    history: list[A2AMessage] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
