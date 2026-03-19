@@ -1,11 +1,14 @@
 import asyncio
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .protocol import VectorStoreProtocol
+# Use TYPE_CHECKING to avoid circular imports with Settings
+if TYPE_CHECKING:
+    from pocketpaw.config import Settings
 
-
-class ChromaAdapter(VectorStoreProtocol):
+# Note: We no longer inherit from VectorStoreProtocol here. 
+# The @runtime_checkable on the protocol handles the check automatically.
+class ChromaAdapter:
     def __init__(self, path: str | Path | None = None, collection_name: str = "pocketpaw_memory"):
         try:
             import chromadb
@@ -29,14 +32,22 @@ class ChromaAdapter(VectorStoreProtocol):
         self.collection = self.client.get_or_create_collection(
             name=collection_name
         )
+        
+    @classmethod
+    def from_settings(cls, settings: "Settings") -> "ChromaAdapter":
+        """
+        Factory method to create an adapter instance using the 
+        vectordb_path defined in the project settings.
+        """
+        return cls(path=settings.vectordb_path)
 
     async def add(self, doc_id: str, text: str, metadata: dict[str, Any] | None = None) -> None:
-        # FIX: Duplicate ID issue solved by using upsert instead of add
+        """Adds or updates a document using upsert."""
         await asyncio.to_thread(
             self.collection.upsert,
             documents=[text],
             ids=[doc_id],
-            metadatas=[metadata] if metadata else None # This is the "Safe" way
+            metadatas=[metadata] if metadata else None
         )
 
     async def search(self, query: str, limit: int = 5) -> list[str]:
@@ -65,7 +76,6 @@ class ChromaAdapter(VectorStoreProtocol):
             ids=[doc_id],
         )
 
-        # FIX: get_by_id crash prevention
         # Safely checks if documents key exists, has items, and the first item isn't None
         docs = results.get("documents")
         if docs and len(docs) > 0 and docs[0] is not None:
