@@ -413,13 +413,14 @@ class Settings(BaseSettings):
         default=10, gt=0, description="Number of recent messages to keep verbatim"
     )
     compaction_char_budget: int = Field(
-        default=8000, gt=0, description="Max total chars for compacted history"
+        default=16000, gt=0, description="Max total chars for compacted history"
     )
     compaction_summary_chars: int = Field(
-        default=150, gt=0, description="Max chars per older message one-liner extract"
+        default=300, gt=0, description="Max chars per older message one-liner extract"
     )
     compaction_llm_summarize: bool = Field(
-        default=False, description="Use Haiku to summarize older messages (opt-in)"
+        default=True,
+        description="Use Haiku to summarize older messages for better context",
     )
 
     # Tool Policy
