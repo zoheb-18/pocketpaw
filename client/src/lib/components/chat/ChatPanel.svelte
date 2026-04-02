@@ -20,6 +20,15 @@
   let isOffline = $derived(connectionStore.isOffline);
   let isLoadingHistory = $derived(sessionStore.isLoadingHistory);
 
+  // ✅ NEW: stable state to stop flicker
+  let showDisconnected = $state(false);
+
+  $effect(() => {
+    if (!connectionStore.isConnected && connectionStore.status !== "connecting") {
+      showDisconnected = true;
+    }
+  });
+
   function handleSuggestion(text: string) {
     chatStore.sendMessage(text);
   }
@@ -28,17 +37,18 @@
     chatStore.error = null;
   }
 
+  function retryConnection() {
+    window.location.reload();
+  }
+
   function retryLastMessage() {
     chatStore.error = null;
     chatStore.regenerateLastResponse();
   }
 
-  // Use document-level listeners to reliably catch drag events regardless of
-  // DOM propagation quirks in Tauri's WebView2 on Windows.
   onMount(() => {
     function onDragOver(e: DragEvent) {
       if (!panelEl?.contains(e.target as Node)) {
-        // Cursor left our panel — clear highlight
         if (isDragOver) isDragOver = false;
         return;
       }
@@ -49,7 +59,6 @@
 
     function onDragLeave(e: DragEvent) {
       if (!panelEl) return;
-      // Use bounding rect — relatedTarget is often null in WebView2
       const rect = panelEl.getBoundingClientRect();
       if (
         e.clientX <= rect.left || e.clientX >= rect.right ||
@@ -65,19 +74,15 @@
       isDragOver = false;
       if (!e.dataTransfer || !chatInput) return;
 
-      // Check for in-app explorer drag first
       const raw = e.dataTransfer.getData(DRAG_MIME);
       if (raw) {
         try {
           const { paths } = JSON.parse(raw) as { paths: string[] };
           chatInput.addExplorerFiles(paths);
           return;
-        } catch {
-          // Fall through to native file handling
-        }
+        } catch {}
       }
 
-      // Native OS file drop
       if (e.dataTransfer.files.length > 0) {
         chatInput.addFiles(Array.from(e.dataTransfer.files));
       }
@@ -134,16 +139,29 @@
       <WifiOff class="h-4 w-4 shrink-0" />
       <span class="flex-1">You're offline. Waiting for network connection...</span>
     </div>
-  {:else if isDisconnected || isConnecting}
+
+  {:else if showDisconnected || isConnecting}
     <div class="mx-4 mb-2 flex items-center gap-2 rounded-md border border-yellow-500/20 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400">
       <WifiOff class="h-4 w-4 shrink-0" />
-      <span class="flex-1">
-        {#if isConnecting}
-          Connecting to backend...
-        {:else}
-          Disconnected from backend. Reconnecting...
+
+      <div class="flex flex-1 items-center justify-between gap-2">
+        <span>
+          {#if isConnecting && !showDisconnected}
+            Connecting to backend...
+          {:else}
+            ⚠️ Backend not connected. Please start the server.
+          {/if}
+        </span>
+
+        {#if showDisconnected}
+          <button
+            onclick={retryConnection}
+            class="rounded-sm bg-yellow-500/20 px-2 py-1 text-xs font-medium hover:bg-yellow-500/30"
+          >
+            Retry
+          </button>
         {/if}
-      </span>
+      </div>
     </div>
   {/if}
 
@@ -152,11 +170,11 @@
       <AlertCircle class="h-4 w-4 shrink-0" />
       <span class="flex-1">{error}</span>
       {#if chatStore.messages.length > 0}
-        <button onclick={retryLastMessage} class="shrink-0 rounded-sm px-2 py-0.5 text-xs font-medium transition-colors hover:bg-red-500/20">
+        <button onclick={retryLastMessage} class="shrink-0 rounded-sm px-2 py-0.5 text-xs font-medium hover:bg-red-500/20">
           Retry
         </button>
       {/if}
-      <button onclick={dismissError} class="shrink-0 rounded-sm p-0.5 transition-colors hover:bg-red-500/20">
+      <button onclick={dismissError} class="shrink-0 rounded-sm p-0.5 hover:bg-red-500/20">
         <X class="h-3.5 w-3.5" />
       </button>
     </div>
